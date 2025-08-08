@@ -1,0 +1,6 @@
+.venv
+.DS_Store
+.env
+.insta_session
+participants.csv
+participants.json
