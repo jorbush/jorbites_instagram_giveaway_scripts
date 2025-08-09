@@ -33,13 +33,11 @@ class CommentEntry:
     comment_id: int
     created_at_utc: str
     text: str
-    recipe_ids: List[str]
 
 
 @dataclass
 class Participant:
     username: str
-    user_id: Optional[int]
     comments: List[CommentEntry]
     entry_count: int
     probability: float
@@ -118,13 +116,11 @@ def build_participants(
             comment_id=comment_id,
             created_at_utc=created_at,
             text=getattr(c, "text", ""),
-            recipe_ids=recipe_ids,
         )
 
         if username not in participants:
             participants[username] = Participant(
                 username=username,
-                user_id=user_id,
                 comments=[],
                 entry_count=0,
                 probability=0.0,
