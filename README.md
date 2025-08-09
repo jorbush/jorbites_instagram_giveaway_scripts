@@ -1,4 +1,4 @@
-# Jorbites Instagram Giveaway Helper
+# Jorbites Instagram Giveaway Scripts
 
 Fetch comments from an Instagram giveaway post, extract `jorbites.com/recipes/{id}` links, tally valid entries per user (one entry per valid comment), and compute each participant's probability of winning.
 
