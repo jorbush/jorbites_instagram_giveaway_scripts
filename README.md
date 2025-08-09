@@ -1,6 +1,6 @@
 # Jorbites Instagram Giveaway Helper
 
-A small CLI that fetches comments from an Instagram giveaway post, extracts `jorbites.com/recipes/{id}` links, tallies valid entries per user, and computes each participant's probability of winning.
+Fetch comments from an Instagram giveaway post, extract `jorbites.com/recipes/{id}` links, tally valid entries per user, and compute each participant's probability of winning.
 
 ## Setup
 
@@ -10,10 +10,12 @@ source .venv/bin/activate
 python -m pip install -r requirements.txt
 ```
 
-Optionally set credentials via env vars:
+Provide credentials via `.env` (auto-loaded):
 
-- `IG_SESSION_USERNAME` and `IG_SESSION_FILE` (recommended; a session is saved/loaded)
-- `IG_USERNAME` and `IG_PASSWORD` (fallback if session not available)
+```
+IG_USERNAME=your_username
+IG_PASSWORD=your_password
+```
 
 ## Usage
 
@@ -21,15 +23,15 @@ Optionally set credentials via env vars:
 python giveaway.py \
   --post-url "https://www.instagram.com/p/DNDunraMPPb/" \
   --dedupe-recipes-per-user \
-  --out-csv participants.csv \
   --out-json participants.json
 ```
 
 Flags:
-- `--dedupe-recipes-per-user`: Count unique recipe IDs per user (suggested to ensure "new recipes").
+- `--dedupe-recipes-per-user`: Count unique recipe IDs per user (suggested for "new recipes").
 - `--count-multiple-links-per-comment`: If a comment has multiple recipe links, count each as an entry. Ignored when deduping per user.
 
-Outputs:
-- CSV summary to `participants.csv`
-- JSON with detailed comments to `participants.json`
-# jorbites_instagram_giveaway_scripts
+Output:
+- JSON with detailed participants and comments to `participants.json`.
+
+Notes:
+- Script logs in using `IG_USERNAME`/`IG_PASSWORD`. No session files are used.

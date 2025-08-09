@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 import argparse
-import csv
 import json
 import os
 import re
@@ -60,44 +59,21 @@ def extract_shortcode_from_url(url: str) -> str:
         raise ValueError("Could not extract shortcode from URL") from exc
 
 
-def create_loader(session_username: Optional[str], sessionfile: Optional[str], login_username: Optional[str], login_password: Optional[str]) -> Instaloader:
-    loader = instaloader.Instaloader(download_pictures=False, download_videos=False, download_video_thumbnails=False, save_metadata=False, compress_json=False)
-
-    # Attempt session load first if provided
-    if session_username and sessionfile and os.path.exists(sessionfile):
-        try:
-            loader.load_session_from_file(session_username, filename=sessionfile)
-            return loader
-        except Exception:
-            pass
-
-    # Fallback to login if credentials provided
-    if login_username and login_password:
-        loader.login(login_username, login_password)
-        # Save session if path provided
-        if sessionfile:
-            try:
-                loader.save_session_to_file(filename=sessionfile)
-            except Exception:
-                pass
-        return loader
-
-    # If session username provided but no session file, try loading default filename
-    if session_username and sessionfile and not os.path.exists(sessionfile):
-        try:
-            loader.load_session_from_file(session_username)
-            return loader
-        except Exception:
-            pass
-
-    # No session and no login; proceed unauthenticated (likely limited)
+def create_loader(login_username: str, login_password: str) -> Instaloader:
+    loader = instaloader.Instaloader(
+        download_pictures=False,
+        download_videos=False,
+        download_video_thumbnails=False,
+        save_metadata=False,
+        compress_json=False,
+    )
+    loader.login(login_username, login_password)
     return loader
 
 
 def fetch_post_and_comments(loader: Instaloader, shortcode: str) -> Tuple[Post, List[Any]]:
     context = loader.context
     post = Post.from_shortcode(context, shortcode)
-    # Ensure we are logged in for comments; raises if not
     comments = list(post.get_comments())
     return post, comments
 
@@ -172,35 +148,6 @@ def build_participants(
     return participants
 
 
-def write_csv(output_csv: str, participants: Dict[str, Participant]) -> None:
-    fieldnames = [
-        "username",
-        "user_id",
-        "entry_count",
-        "probability",
-        "comment_ids",
-        "recipe_ids_posted",
-    ]
-    with open(output_csv, "w", newline="", encoding="utf-8") as f:
-        writer = csv.DictWriter(f, fieldnames=fieldnames)
-        writer.writeheader()
-        for participant in sorted(participants.values(), key=lambda p: (-p.probability, p.username)):
-            all_comment_ids = [str(c.comment_id) for c in participant.comments]
-            all_recipes = []
-            for c in participant.comments:
-                all_recipes.extend(c.recipe_ids)
-            writer.writerow(
-                {
-                    "username": participant.username,
-                    "user_id": participant.user_id or "",
-                    "entry_count": participant.entry_count,
-                    "probability": f"{participant.probability:.6f}",
-                    "comment_ids": ",".join(all_comment_ids),
-                    "recipe_ids_posted": ",".join(sorted(set(all_recipes))),
-                }
-            )
-
-
 def write_json(output_json: str, participants: Dict[str, Participant]) -> None:
     serializable = [
         {
@@ -220,10 +167,8 @@ def main(argv: Optional[List[str]] = None) -> int:
     parser.add_argument("--post-url", required=True, help="Instagram post URL of the giveaway (e.g., https://www.instagram.com/p/SHORTCODE/)")
 
     auth = parser.add_argument_group("Authentication")
-    auth.add_argument("--session-username", default=os.getenv("IG_SESSION_USERNAME"), help="Instagram username used to load/save session.")
-    auth.add_argument("--session-file", default=os.getenv("IG_SESSION_FILE", ".insta_session"), help="Path to session file to load/save.")
-    auth.add_argument("--login-username", default=os.getenv("IG_USERNAME"), help="Instagram login username (fallback if no valid session).")
-    auth.add_argument("--login-password", default=os.getenv("IG_PASSWORD"), help="Instagram login password (fallback if no valid session).")
+    auth.add_argument("--login-username", default=os.getenv("IG_USERNAME"), help="Instagram login username (or set IG_USERNAME in .env)")
+    auth.add_argument("--login-password", default=os.getenv("IG_PASSWORD"), help="Instagram login password (or set IG_PASSWORD in .env)")
 
     logic = parser.add_argument_group("Counting logic")
     logic.add_argument("--dedupe-recipes-per-user", action="store_true", help="Count only unique recipe IDs per user across all comments.")
@@ -234,16 +179,17 @@ def main(argv: Optional[List[str]] = None) -> int:
     )
 
     output = parser.add_argument_group("Output")
-    output.add_argument("--out-csv", default="participants.csv", help="Path to write CSV summary.")
     output.add_argument("--out-json", default="participants.json", help="Path to write JSON details.")
 
     args = parser.parse_args(argv)
 
+    if not args.login_username or not args.login_password:
+        print("Error: IG_USERNAME and IG_PASSWORD must be provided (via flags or .env).", file=sys.stderr)
+        return 2
+
     shortcode = extract_shortcode_from_url(args.post_url)
 
     loader = create_loader(
-        session_username=args.session_username,
-        sessionfile=args.session_file,
         login_username=args.login_username,
         login_password=args.login_password,
     )
@@ -257,7 +203,6 @@ def main(argv: Optional[List[str]] = None) -> int:
     )
 
     # Write outputs
-    write_csv(args.out_csv, participants)
     write_json(args.out_json, participants)
 
     # Human-readable console output
@@ -270,7 +215,6 @@ def main(argv: Optional[List[str]] = None) -> int:
         print(f"{p.username}, {p.entry_count}, {p.probability:.2%}")
 
     print("")
-    print(f"Wrote CSV: {args.out_csv}")
     print(f"Wrote JSON: {args.out_json}")
 
     return 0
