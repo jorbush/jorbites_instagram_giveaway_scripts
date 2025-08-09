@@ -24,7 +24,8 @@ except Exception as exc:
     sys.exit(1)
 
 
-JORBITES_RECIPE_REGEX = re.compile(r"https?://(?:www\.)?jorbites\.com/recipes/([A-Za-z0-9_-]+)", re.IGNORECASE)
+JORBITES_RECIPE_REGEX = re.compile(
+    r"https?://(?:www\.)?jorbites\.com/recipes/([A-Za-z0-9_-]+)", re.IGNORECASE)
 
 
 @dataclass
@@ -52,7 +53,8 @@ def extract_shortcode_from_url(url: str) -> str:
     elif "reel" in parts:
         idx = parts.index("reel")
     else:
-        raise ValueError("Unsupported Instagram URL format. Expected /p/{shortcode} or /reel/{shortcode}.")
+        raise ValueError(
+            "Unsupported Instagram URL format. Expected /p/{shortcode} or /reel/{shortcode}.")
     try:
         return parts[idx + 1]
     except Exception as exc:
@@ -91,10 +93,12 @@ def build_participants(
     user_to_unique_recipes: Dict[str, Set[str]] = {}
 
     for c in comments:
-        username = getattr(c.owner, "username", None) if hasattr(c, "owner") else None
+        username = getattr(c.owner, "username", None) if hasattr(
+            c, "owner") else None
         if username is None:
             username = getattr(c, "owner", None)
-        user_id = getattr(c.owner, "userid", None) if hasattr(c, "owner") else None
+        user_id = getattr(c.owner, "userid", None) if hasattr(
+            c, "owner") else None
         if not username:
             continue
 
@@ -104,7 +108,8 @@ def build_participants(
 
         created_at_attr = getattr(c, "created_at_utc", None)
         if hasattr(created_at_attr, "timestamp"):
-            created_at = datetime.utcfromtimestamp(created_at_attr.timestamp()).isoformat() + "Z"
+            created_at = datetime.utcfromtimestamp(
+                created_at_attr.timestamp()).isoformat() + "Z"
         else:
             created_at = datetime.utcnow().isoformat() + "Z"
 
@@ -143,7 +148,8 @@ def build_participants(
 
     total_entries = sum(p.entry_count for p in participants.values())
     for p in participants.values():
-        p.probability = (p.entry_count / total_entries) if total_entries > 0 else 0.0
+        p.probability = (
+            p.entry_count / total_entries) if total_entries > 0 else 0.0
 
     return participants
 
@@ -160,18 +166,51 @@ def write_json(output_json: str, participants: Dict[str, Participant]) -> None:
         json.dump(serializable, f, ensure_ascii=False, indent=2)
 
 
+def print_participants_table(participants: Dict[str, Participant]) -> None:
+    sorted_participants = sorted(
+        participants.values(), key=lambda x: (-x.probability, x.username))
+    headers = ["#", "username", "entries", "probability"]
+    rows: List[List[str]] = []
+    for idx, p in enumerate(sorted_participants, start=1):
+        rows.append([str(idx), p.username, str(
+            p.entry_count), f"{p.probability:.2%}"])
+
+    widths = [len(h) for h in headers]
+    for row in rows:
+        widths = [max(w, len(cell)) for w, cell in zip(widths, row)]
+
+    indent = "  "
+    top = indent + "┌" + "┬".join("─" * (w + 2) for w in widths) + "┐"
+    header_row = indent + "│" + \
+        "│".join(f" {h.ljust(w)} " for h, w in zip(headers, widths)) + "│"
+    sep = indent + "├" + "┼".join("─" * (w + 2) for w in widths) + "┤"
+    bottom = indent + "└" + "┴".join("─" * (w + 2) for w in widths) + "┘"
+
+    print(top)
+    print(header_row)
+    print(sep)
+    for row in rows:
+        print(indent + "│" +
+              "│".join(f" {cell.ljust(w)} " for cell, w in zip(row, widths)) + "│")
+    print(bottom)
+
+
 def main(argv: Optional[List[str]] = None) -> int:
     parser = argparse.ArgumentParser(
         description="Compute participants and probabilities for a Jorbites Instagram giveaway by parsing recipe links in comments."
     )
-    parser.add_argument("--post-url", required=True, help="Instagram post URL of the giveaway (e.g., https://www.instagram.com/p/SHORTCODE/)")
+    parser.add_argument("--post-url", required=True,
+                        help="Instagram post URL of the giveaway (e.g., https://www.instagram.com/p/SHORTCODE/)")
 
     auth = parser.add_argument_group("Authentication")
-    auth.add_argument("--login-username", default=os.getenv("IG_USERNAME"), help="Instagram login username (or set IG_USERNAME in .env)")
-    auth.add_argument("--login-password", default=os.getenv("IG_PASSWORD"), help="Instagram login password (or set IG_PASSWORD in .env)")
+    auth.add_argument("--login-username", default=os.getenv("IG_USERNAME"),
+                      help="Instagram login username (or set IG_USERNAME in .env)")
+    auth.add_argument("--login-password", default=os.getenv("IG_PASSWORD"),
+                      help="Instagram login password (or set IG_PASSWORD in .env)")
 
     logic = parser.add_argument_group("Counting logic")
-    logic.add_argument("--dedupe-recipes-per-user", action="store_true", help="Count only unique recipe IDs per user across all comments.")
+    logic.add_argument("--dedupe-recipes-per-user", action="store_true",
+                       help="Count only unique recipe IDs per user across all comments.")
     logic.add_argument(
         "--count-multiple-links-per-comment",
         action="store_true",
@@ -179,7 +218,8 @@ def main(argv: Optional[List[str]] = None) -> int:
     )
 
     output = parser.add_argument_group("Output")
-    output.add_argument("--out-json", default="participants.json", help="Path to write JSON details.")
+    output.add_argument("--out-json", default="participants.json",
+                        help="Path to write JSON details.")
 
     args = parser.parse_args(argv)
 
@@ -202,20 +242,10 @@ def main(argv: Optional[List[str]] = None) -> int:
         dedupe_recipes_per_user=args.dedupe_recipes_per_user,
     )
 
-    # Write outputs
     write_json(args.out_json, participants)
 
-    # Human-readable console output
-    total_entries = sum(p.entry_count for p in participants.values())
-    print(f"Post: https://www.instagram.com/p/{shortcode}/  | Total valid entries: {total_entries}")
-    print("")
-    print("Participants (sorted by probability):")
-    print("username, entries, probability")
-    for p in sorted(participants.values(), key=lambda x: (-x.probability, x.username)):
-        print(f"{p.username}, {p.entry_count}, {p.probability:.2%}")
-
-    print("")
-    print(f"Wrote JSON: {args.out_json}")
+    # Minimal, polished terminal output: only the formatted table
+    print_participants_table(participants)
 
     return 0
 
