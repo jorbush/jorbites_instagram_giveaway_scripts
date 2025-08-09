@@ -1,6 +1,6 @@
 # Jorbites Instagram Giveaway Helper
 
-Fetch comments from an Instagram giveaway post, extract `jorbites.com/recipes/{id}` links, tally valid entries per user, and compute each participant's probability of winning.
+Fetch comments from an Instagram giveaway post, extract `jorbites.com/recipes/{id}` links, tally valid entries per user (one entry per valid comment), and compute each participant's probability of winning.
 
 ## Setup
 
@@ -21,17 +21,10 @@ IG_PASSWORD=your_password
 
 ```bash
 python giveaway.py \
-  --post-url "https://www.instagram.com/p/DNDunraMPPb/" \
-  --dedupe-recipes-per-user \
-  --out-json participants.json
+  --post-url "https://www.instagram.com/p/DNDunraMPPb/"
 ```
 
-Flags:
-- `--dedupe-recipes-per-user`: Count unique recipe IDs per user (suggested for "new recipes").
-- `--count-multiple-links-per-comment`: If a comment has multiple recipe links, count each as an entry. Ignored when deduping per user.
-
-Output:
-- JSON with detailed participants and comments to `participants.json`.
-
-Notes:
-- Script logs in using `IG_USERNAME`/`IG_PASSWORD`. No session files are used.
+- The script logs in with `IG_USERNAME`/`IG_PASSWORD` and fetches the post’s comments.
+- A comment is counted only if it contains a `https://jorbites.com/recipes/{id}` link.
+- Each valid comment = 1 entry for that user.
+- The terminal prints a compact, nicely formatted table with rank, username, entries, and probability.
