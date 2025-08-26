@@ -55,11 +55,12 @@ def print_winners_box(winners: List[Tuple[Participant, CommentEntry]]) -> None:
     width = max(len(s) for s in lines)
     top = indent + "┌" + "─" * (width + 2) + "┐"
     bottom = indent + "└" + "─" * (width + 2) + "┘"
-
+    print(f"\n")
     print(top)
     for s in lines:
         print(indent + "│ " + s.ljust(width) + " │")
     print(bottom)
+    print(f"\n")
 
 
 def main(argv: Optional[List[str]] = None) -> int:

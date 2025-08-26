@@ -17,6 +17,7 @@ except Exception:
 try:
     import instaloader
     from instaloader import Instaloader, Post
+    from instaloader.exceptions import TwoFactorAuthRequiredException, BadCredentialsException
 except Exception as exc:
     print("Error: Failed to import instaloader. Did you install requirements?", file=sys.stderr)
     print(str(exc), file=sys.stderr)
@@ -66,7 +67,49 @@ def create_loader(login_username: str, login_password: str) -> Instaloader:
         save_metadata=False,
         compress_json=False,
     )
-    loader.login(login_username, login_password)
+
+    # Define local session file path
+    session_file = f"session-{login_username}"
+
+    # Try to load existing session first
+    try:
+        loader.load_session_from_file(login_username, session_file)
+        print(
+            f"Loaded existing session for {login_username} from {session_file}")
+
+        # Test if the session is still valid
+        try:
+            current_user = loader.test_login()
+            if current_user == login_username:
+                print(
+                    f"Session is valid for user {current_user}, skipping login")
+                return loader
+            else:
+                print(
+                    f"Session is for different user ({current_user}), proceeding with login...")
+        except Exception as validation_error:
+            print(f"Session validation failed: {validation_error}")
+            print("Session appears to be expired or invalid, proceeding with login...")
+    except Exception as load_error:
+        print(
+            f"No valid session found ({load_error}), proceeding with login...")
+
+    # If no valid session, proceed with login
+    try:
+        loader.login(login_username, login_password)
+        loader.save_session_to_file(session_file)
+        print(f"Login successful, session saved to {session_file}")
+    except TwoFactorAuthRequiredException:
+        print("Two-factor authentication required.")
+        two_factor_code = input("Please enter your 2FA code: ").strip()
+        try:
+            loader.two_factor_login(two_factor_code)
+            loader.save_session_to_file(session_file)
+            print(
+                f"Two-factor authentication successful, session saved to {session_file}")
+        except Exception as e:
+            print(f"Error: {e}")
+            sys.exit(1)
     return loader
 
 
@@ -154,7 +197,7 @@ def print_participants_table(participants: Dict[str, Participant]) -> None:
         "│".join(f" {h.ljust(w)} " for h, w in zip(headers, widths)) + "│"
     sep = indent + "├" + "┼".join("─" * (w + 2) for w in widths) + "┤"
     bottom = indent + "└" + "┴".join("─" * (w + 2) for w in widths) + "┘"
-
+    print(f"\n                 Jorbites Giveaway\n")
     print(top)
     print(header_row)
     print(sep)
@@ -162,6 +205,7 @@ def print_participants_table(participants: Dict[str, Participant]) -> None:
         print(indent + "│" +
               "│".join(f" {cell.ljust(w)} " for cell, w in zip(row, widths)) + "│")
     print(bottom)
+    print(f"\n")
 
 
 def main(argv: Optional[List[str]] = None) -> int:
